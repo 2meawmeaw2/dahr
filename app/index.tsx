@@ -19,6 +19,9 @@ export default function HomeScreen() {
       <Link href="/workouts" asChild>
         <Button label="Open workouts" />
       </Link>
+      <Link href="/exercises" asChild>
+        <Button label="Open exercise library" />
+      </Link>
     </View>
   );
 }
