@@ -2,15 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 
 import { computeReadiness, type DailyCheckIn } from '@/features/recovery';
+import { buildWorkoutSummary, createExerciseLogState, type SetLog } from './workoutLogging';
 import { spacing } from '@/theme/tokens';
-
-type SetLog = {
-  reps: string;
-  load: string;
-  rpe: string;
-  notes: string;
-  completed: boolean;
-};
 
 type Exercise = {
   id: string;
@@ -99,29 +92,10 @@ const checkInScale = [1, 2, 3, 4, 5];
 
 const sleepDurationOptions = [5, 6, 7, 8, 9];
 
-function createLogState() {
-  return blocks.reduce<Record<string, SetLog[]>>((acc, block) => {
-    for (const exercise of block.exercises) {
-      acc[exercise.id] = Array.from({ length: exercise.sets }, () => ({
-        reps: '',
-        load: '',
-        rpe: '',
-        notes: '',
-        completed: false,
-      }));
-    }
-
-    return acc;
-  }, {});
-}
-
-function toNumber(value: string) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
 export function WorkoutExecutionScreen() {
-  const [logs, setLogs] = useState<Record<string, SetLog[]>>(() => createLogState());
+  const [logs, setLogs] = useState<Record<string, SetLog[]>>(() =>
+    createExerciseLogState(blocks.flatMap((block) => block.exercises.map((exercise) => ({ id: exercise.id, sets: exercise.sets })))),
+  );
   const [exerciseActions, setExerciseActions] = useState<Record<string, ExerciseAction>>({});
   const [autoStartRest, setAutoStartRest] = useState(true);
   const [selectedPreset, setSelectedPreset] = useState(90);
@@ -149,68 +123,15 @@ export function WorkoutExecutionScreen() {
   const allExercises = blocks.flatMap((block) => block.exercises);
   const readiness = useMemo(() => computeReadiness(checkIn), [checkIn]);
 
-  const summary = useMemo(() => {
-    let totalVolume = 0;
-    let totalCompletedSets = 0;
-    let totalPlannedSets = 0;
-    let rpeTotal = 0;
-    let rpeCount = 0;
-
-    for (const exercise of allExercises) {
-      const setLogs = logs[exercise.id] ?? [];
-      totalPlannedSets += exercise.sets;
-
-      for (const set of setLogs) {
-        if (!set.completed) {
-          continue;
-        }
-
-        totalCompletedSets += 1;
-        totalVolume += toNumber(set.reps) * toNumber(set.load);
-
-        const rpe = toNumber(set.rpe);
-        if (rpe > 0) {
-          rpeTotal += rpe;
-          rpeCount += 1;
-        }
-      }
-    }
-
-    const adherence =
-      totalPlannedSets === 0 ? 0 : Math.round((totalCompletedSets / totalPlannedSets) * 100);
-    const avgRpe = rpeCount === 0 ? 0 : rpeTotal / rpeCount;
-
-    const fatigueMarker =
-      avgRpe >= 8.5
-        ? 'High fatigue observed in set logs.'
-        : avgRpe >= 7
-          ? 'Moderate fatigue observed in set logs.'
-          : 'Low fatigue observed in set logs.';
-
-    const sessionPlan =
-      readiness.zone === 'green'
-        ? 'Green readiness: run the normal session plan today.'
-        : readiness.zone === 'yellow'
-          ? 'Yellow readiness: reduce working sets and keep intensity submaximal.'
-          : 'Red readiness: swap this workout for mobility and active recovery work.';
-
-    const progressionSuggestion =
-      readiness.zone === 'red'
-        ? 'Recovery day selected: defer loading progress and restore movement quality.'
-        : adherence >= 90 && avgRpe <= 7.5 && readiness.zone === 'green'
-          ? 'Progress top sets by +2.5% load next workout.'
-          : adherence >= 75
-            ? 'Repeat progression wave and add one rep on final set.'
-            : 'Use regression path: reduce load by 5% and rebuild form quality.';
-
-    return {
-      totalVolume,
-      adherence,
-      fatigueMarker,
-      sessionPlan,
-      progressionSuggestion,
-    };
-  }, [allExercises, logs, readiness.zone]);
+  const summary = useMemo(
+    () =>
+      buildWorkoutSummary(
+        allExercises.map((exercise) => ({ id: exercise.id, sets: exercise.sets })),
+        logs,
+        checkIn,
+      ),
+    [allExercises, logs, checkIn],
+  );
 
   const updateCheckIn = <K extends keyof DailyCheckIn>(field: K, value: DailyCheckIn[K]) => {
     setCheckIn((current) => ({

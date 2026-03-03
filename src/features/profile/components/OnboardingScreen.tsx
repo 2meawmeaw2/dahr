@@ -3,15 +3,14 @@ import { Button, Card, Input, Screen } from '../../../components/ui';
 import { useTheme } from '../../../theme';
 import { useProfile } from '../ProfileContext';
 import { equipmentOptions, experienceOptions, goalOptions } from '../types';
-import { hasValidationErrors, validateProfile, type ProfileValidationErrors } from '../validation';
-
-const stepTitles = [
-  'Welcome',
-  'Your primary goal',
-  'Experience and equipment',
-  'Availability',
-  'Injuries and mobility',
-] as const;
+import { type ProfileValidationErrors } from '../validation';
+import {
+  ONBOARDING_STEPS,
+  completeOnboarding,
+  getOnboardingProgress,
+  nextOnboardingStep,
+  previousOnboardingStep,
+} from '../onboardingFlow';
 
 export const OnboardingScreen = () => {
   const theme = useTheme();
@@ -20,24 +19,22 @@ export const OnboardingScreen = () => {
   const [errors, setErrors] = useState<ProfileValidationErrors>({});
   const [saveMessage, setSaveMessage] = useState('');
 
-  const progress = useMemo(() => Math.round(((step + 1) / stepTitles.length) * 100), [step]);
+  const progress = useMemo(() => getOnboardingProgress(step), [step]);
 
   const handleNext = async () => {
-    if (step < stepTitles.length - 1) {
-      setStep((current) => current + 1);
+    if (step < ONBOARDING_STEPS.length - 1) {
+      setStep((current) => nextOnboardingStep(current));
       return;
     }
 
-    const nextDraft = { ...draft, completedOnboarding: true };
-    const validation = validateProfile(nextDraft);
-    setErrors(validation);
+    const completion = await completeOnboarding(draft, persistProfile);
+    setErrors(completion.errors);
 
-    if (hasValidationErrors(validation)) {
+    if (!completion.ok) {
       return;
     }
 
-    await persistProfile(nextDraft);
-    setSaveMessage('Profile setup complete. Preferences saved.');
+    setSaveMessage(completion.message);
   };
 
   const handleBack = () => {
@@ -45,7 +42,7 @@ export const OnboardingScreen = () => {
       return;
     }
 
-    setStep((current) => current - 1);
+    setStep((current) => previousOnboardingStep(current));
   };
 
   return (
@@ -53,7 +50,7 @@ export const OnboardingScreen = () => {
       <Card style={{ maxWidth: 720, margin: '0 auto', display: 'grid', gap: theme.spacing.lg }}>
         <header style={{ display: 'grid', gap: theme.spacing.xs }}>
           <small style={{ color: theme.colors.text.tertiary }}>Onboarding {progress}%</small>
-          <h1 style={{ margin: 0 }}>{stepTitles[step]}</h1>
+          <h1 style={{ margin: 0 }}>{ONBOARDING_STEPS[step]}</h1>
         </header>
 
         {step === 0 ? (
@@ -205,7 +202,7 @@ export const OnboardingScreen = () => {
           <Button variant="ghost" onClick={handleBack} disabled={step === 0}>
             Back
           </Button>
-          <Button onClick={() => void handleNext()}>{step === stepTitles.length - 1 ? 'Finish' : 'Continue'}</Button>
+          <Button onClick={() => void handleNext()}>{step === ONBOARDING_STEPS.length - 1 ? 'Finish' : 'Continue'}</Button>
         </footer>
 
         {saveMessage ? <p style={{ color: theme.colors.state.success, margin: 0 }}>{saveMessage}</p> : null}
