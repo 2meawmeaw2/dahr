@@ -2,6 +2,14 @@ import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { CartesianChart, Line, Scatter } from 'victory-native';
 
+import {
+  bodyMeasurementEntries,
+  bodyweightEntries,
+  calculateBodyweightTrend,
+  calculateMeasurementChanges,
+  progressPhotoMetadataPlaceholders,
+  summarizeAdherenceCorrelation,
+} from '@/features/metrics';
 import { spacing } from '@/theme/tokens';
 
 import {
@@ -77,6 +85,27 @@ export function ProgressDashboardScreen() {
     .sort((a, b) => (a.date < b.date ? -1 : 1))
     .map((item, index) => ({ x: index + 1, y: item.volume, label: dayLabel(item.date) }));
 
+  const filteredBodyweight = bodyweightEntries.filter(
+    (entry) => daysSince(entry.date) <= rangeDays[range] || range === 'all-time',
+  );
+
+  const filteredMeasurements = bodyMeasurementEntries.filter(
+    (entry) => daysSince(entry.date) <= rangeDays[range] || range === 'all-time',
+  );
+
+  const filteredPhotoMetadata = progressPhotoMetadataPlaceholders.filter(
+    (photo) => daysSince(photo.date) <= rangeDays[range] || range === 'all-time',
+  );
+
+  const bodyweightTrend = calculateBodyweightTrend(filteredBodyweight);
+  const measurementChanges = calculateMeasurementChanges(filteredMeasurements);
+
+  const adherenceCorrelation = summarizeAdherenceCorrelation(
+    adherence,
+    bodyweightTrend,
+    measurementChanges,
+  );
+
   return (
     <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }}>
       <View style={{ gap: 4 }}>
@@ -127,6 +156,52 @@ export function ProgressDashboardScreen() {
           <Text style={{ fontSize: 13, color: '#475569' }}>Adherence</Text>
           <Text style={{ fontSize: 28, fontWeight: '700', color: '#0F172A' }}>{adherence}%</Text>
         </View>
+      </View>
+
+      <View
+        style={{
+          backgroundColor: '#FFFFFF',
+          borderRadius: 12,
+          borderWidth: 1,
+          borderColor: '#E2E8F0',
+          padding: spacing.md,
+          gap: spacing.sm,
+        }}
+      >
+        <Text style={{ fontSize: 18, fontWeight: '600' }}>Body metrics + adherence summary</Text>
+        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+          <View
+            style={{ flex: 1, backgroundColor: '#F8FAFC', borderRadius: 10, padding: spacing.sm }}
+          >
+            <Text style={{ color: '#475569', fontSize: 12 }}>Bodyweight trend</Text>
+            <Text style={{ color: '#0F172A', fontWeight: '700', fontSize: 18 }}>
+              {bodyweightTrend.deltaKg > 0 ? '+' : ''}
+              {bodyweightTrend.deltaKg} kg
+            </Text>
+            <Text style={{ color: '#64748B', fontSize: 12 }}>
+              {bodyweightTrend.weeklyRateKg > 0 ? '+' : ''}
+              {bodyweightTrend.weeklyRateKg} kg/week
+            </Text>
+          </View>
+          <View
+            style={{ flex: 1, backgroundColor: '#F8FAFC', borderRadius: 10, padding: spacing.sm }}
+          >
+            <Text style={{ color: '#475569', fontSize: 12 }}>Measurement deltas</Text>
+            <Text style={{ color: '#0F172A', fontWeight: '700', fontSize: 16 }}>
+              Waist {measurementChanges.waistCm > 0 ? '+' : ''}
+              {measurementChanges.waistCm} cm
+            </Text>
+            <Text style={{ color: '#64748B', fontSize: 12 }}>
+              Chest {measurementChanges.chestCm > 0 ? '+' : ''}
+              {measurementChanges.chestCm} · Arm {measurementChanges.armCm > 0 ? '+' : ''}
+              {measurementChanges.armCm}
+            </Text>
+          </View>
+        </View>
+        <Text style={{ color: '#334155' }}>{adherenceCorrelation}</Text>
+        <Text style={{ color: '#64748B', fontSize: 12 }}>
+          Progress photo placeholders in range: {filteredPhotoMetadata.length}
+        </Text>
       </View>
 
       <View
