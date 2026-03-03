@@ -25,6 +25,9 @@ export default function HomeScreen() {
       <Link href="/progress" asChild>
         <Button label="Open progress dashboard" />
       </Link>
+      <Link href="/settings" asChild>
+        <Button label="Open settings" />
+      </Link>
     </View>
   );
 }
