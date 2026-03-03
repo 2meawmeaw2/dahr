@@ -1,3 +1,4 @@
-export * from './SettingsScreen';
-export * from './notifications';
-export * from './syncService';
+export * from './SettingsScreen'
+export * from './notifications'
+export * from './preferences'
+export * from './syncService'
